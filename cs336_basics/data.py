@@ -1,6 +1,9 @@
 import torch
 import torch.nn as nn
 import numpy as np
+from torch.nn import Module
+import os
+from typing import Union,BinaryIO
 
 def get_batch(x:np.ndarray,
               batch_size:int,
@@ -36,6 +39,50 @@ def get_batch(x:np.ndarray,
             targets = torch.tensor(x[target_idx], dtype=torch.long, device=device)
 
             return inputs, targets
+
+
+def save_checkpoint(model:torch.nn.Module,
+    optimizer:torch.optim.Optimizer,
+    iteration:int,
+    out:str|os.PathLike|typing.BinaryIO|typing.IO[bytes]
+    ):
+    """
+    保存训练检查点，包含模型权重、优化器状态、当前迭代步数
+    Args:
+        model: 模型实例
+        optimizer: 优化器实例
+        iteration: 当前训练迭代步数
+        out: 保存目标，支持文件路径字符串、Path对象、二进制文件对象
+    """
+    checkpoint = {
+        "model":model.state_dict(),# 模型的所有权重与缓冲区
+        "optmizer":optimizer.state_dict(),# 优化器所有状态(动量、步数等)
+        "iteration":iteration # 当前学习率调度的迭代次数
+    }
+    torch.save(checkpoint,out)
+
+
+def load_checkpoint(
+    model: Module,
+    optimizer: Optimizer,
+    src: Union[str, os.PathLike, BinaryIO]
+) -> int:
+    """
+    加载训练检查点，原地恢复模型与优化器状态，返回迭代步数
+    Args:
+        model: 模型实例（结构需与保存时一致）
+        optimizer: 优化器实例（类型需与保存时一致）
+        src: 读取源，支持文件路径字符串、Path对象、二进制文件对象
+    Returns:
+        检查点记录的迭代步数
+    """
+    checkpoint = torch.load(src,map_location="cpu",weight_only=False)
+    model.load_sate_dict(checkpoint["model"])
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    
+    # 返回迭代步数，供训练循环恢复进度
+    return checkpoint["iteration"]
+
 
 
             
